@@ -13,15 +13,26 @@ export const router = express.Router();
  * returns: { link, key }
  */
 router.post("/getModLink", async (req, res) => {
-    const email = String(req.body?.email || "").trim().toLowerCase();
+    const rawEmail = req.body?.email;
+    const email = String(rawEmail || "").trim().toLowerCase();
     if (!email) return res.status(400).json({ error: "email is required" });
+
+    // Tymczasowo: log pełnego payloadu z WP
+    // (w produkcji usuń lub ogranicz logowanie, bo mogą tam być dane wrażliwe)
+    console.log("GET /getModLink payload:", {
+        email,
+        source: req.body?.source,
+        wpUser: req.body?.wpUser,
+    });
 
     const key = makeModifyKey(email);
 
     const base = process.env.PUBLIC_BASE_URL || "";
     const path = process.env.CLIENT_MODIFY_PATH || "/modifyRecord";
     const link = `${base}${path}?key=${encodeURIComponent(key)}`;
-    console.log(key, link)
+
+    console.log("Generated:", { email, key, link });
+
     return res.json({ key, link });
 });
 
@@ -101,7 +112,14 @@ router.post("/createUser", async (req, res) => {
     // upsert po emailu (unikalność loginu)
     const now = new Date();
     const doc = { ...payload, phone: payload.phone || "", updatedAt: now };
+    const exists = await db.collection("users").findOne(
+        { email: payload.email },
+        { projection: { _id: 1 } }
+    );
 
+    if (exists) {
+        return res.status(409).json({ error: "Email already exists" });
+    }
     await db.collection("users").updateOne(
         { email: doc.email },
         { $set: doc, $setOnInsert: { createdAt: now } },
@@ -134,7 +152,7 @@ router.post("/modifyUser", async (req, res) => {
     let matchedEmail = null;
 
     const cursor = db.collection("users").find({}, { projection: { email: 1 } });
-    
+
     for await (const u of cursor) {
         const email = String(u.email || "").trim().toLowerCase();
         if (!email) continue;
