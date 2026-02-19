@@ -13,26 +13,15 @@ export const router = express.Router();
  * returns: { link, key }
  */
 router.post("/getModLink", async (req, res) => {
-    const rawEmail = req.body?.email;
-    const email = String(rawEmail || "").trim().toLowerCase();
+    const email = String(req.body?.email || "").trim().toLowerCase();
     if (!email) return res.status(400).json({ error: "email is required" });
-
-    // Tymczasowo: log pełnego payloadu z WP
-    // (w produkcji usuń lub ogranicz logowanie, bo mogą tam być dane wrażliwe)
-    console.log("GET /getModLink payload:", {
-        email,
-        source: req.body?.source,
-        wpUser: req.body?.wpUser,
-    });
 
     const key = makeModifyKey(email);
 
     const base = process.env.PUBLIC_BASE_URL || "";
     const path = process.env.CLIENT_MODIFY_PATH || "/modifyRecord";
     const link = `${base}${path}?key=${encodeURIComponent(key)}`;
-
-    console.log("Generated:", { email, key, link });
-
+    console.log(key, link)
     return res.json({ key, link });
 });
 
