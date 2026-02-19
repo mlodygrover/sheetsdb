@@ -214,6 +214,9 @@ const Note = styled.p`
 export default function ModifyRecord() {
   const [sp] = useSearchParams();
   const key = sp.get("key") || "";
+  const emailFromUrl = (sp.get("email") || "").trim().toLowerCase();
+
+  const [isNew, setIsNew] = useState(false);
 
   const [groups, setGroups] = useState([]);
   const [status, setStatus] = useState({ type: "", msg: "" });
@@ -222,8 +225,8 @@ export default function ModifyRecord() {
   });
 
   const canSubmit = useMemo(() => {
-    return key && form.name.trim() && form.lawFirm.trim() && form.email.trim() && 
-           form.country.trim() && form.groups.length >= 1;
+    return key && form.name.trim() && form.lawFirm.trim() && form.email.trim() &&
+      form.country.trim() && form.groups.length >= 1;
   }, [key, form]);
 
   useEffect(() => {
@@ -239,10 +242,15 @@ export default function ModifyRecord() {
 
   useEffect(() => {
     if (!key) return;
+
     (async () => {
       try {
         const r = await api.get("/getUserByKey", { params: { key } });
         const u = r.data.user;
+
+        setIsNew(false);
+        setStatus({ type: "", msg: "" });
+
         setForm({
           name: u.name || "",
           lawFirm: u.lawFirm || "",
@@ -251,17 +259,35 @@ export default function ModifyRecord() {
           country: u.country || "",
           groups: Array.isArray(u.groups) ? u.groups : [],
         });
-      } catch {
-        setStatus({ type: "error", msg: "Invalid or expired modification link." });
+      } catch (e) {
+        // 404 (brak rekordu) -> nowy użytkownik
+        setIsNew(true);
+
+        setForm({
+          name: "",
+          lawFirm: "",
+          email: emailFromUrl, // tylko email wypełniony
+          phone: "",
+          country: "",
+          groups: [],
+        });
+
+        setStatus({
+          type: "error",
+          msg: emailFromUrl
+            ? "No existing record found. Please complete the form to create your profile."
+            : "No existing record found and email is missing in URL.",
+        });
       }
     })();
-  }, [key]);
+  }, [key, emailFromUrl]);
+
 
   function toggleGroup(name) {
     setForm(prev => ({
       ...prev,
-      groups: prev.groups.includes(name) 
-        ? prev.groups.filter(x => x !== name) 
+      groups: prev.groups.includes(name)
+        ? prev.groups.filter(x => x !== name)
         : [...prev.groups, name]
     }));
   }
@@ -270,12 +296,28 @@ export default function ModifyRecord() {
     setStatus({ type: "", msg: "" });
     try {
       await api.post("/modifyUser", { key, ...form });
+
       setStatus({ type: "ok", msg: "Profile updated successfully!" });
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+
+      // po sukcesie dociągnij rekord po key, żeby przejść na standardowy tryb (bez kombinacji)
+      const r = await api.get("/getUserByKey", { params: { key } });
+      const u = r.data.user;
+
+      setIsNew(false);
+      setForm({
+        name: u.name || "",
+        lawFirm: u.lawFirm || "",
+        email: u.email || "",
+        phone: u.phone || "",
+        country: u.country || "",
+        groups: Array.isArray(u.groups) ? u.groups : [],
+      });
     } catch (e) {
       setStatus({ type: "error", msg: e?.response?.data?.error || "Update failed." });
     }
   }
+
 
   return (
     <Page>
@@ -295,11 +337,11 @@ export default function ModifyRecord() {
           <Grid>
             <Field>
               <label>Full Name *</label>
-              <Input value={form.name} onChange={e => setForm({...form, name: e.target.value})} placeholder="John Doe" />
+              <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="John Doe" />
             </Field>
             <Field>
               <label>Law Firm *</label>
-              <Input value={form.lawFirm} onChange={e => setForm({...form, lawFirm: e.target.value})} placeholder="Firm Name" />
+              <Input value={form.lawFirm} onChange={e => setForm({ ...form, lawFirm: e.target.value })} placeholder="Firm Name" />
             </Field>
             <Field>
               <label>E-mail *</label>
@@ -307,11 +349,11 @@ export default function ModifyRecord() {
             </Field>
             <Field>
               <label>Phone</label>
-              <Input value={form.phone} onChange={e => setForm({...form, phone: e.target.value})} inputMode="tel" placeholder="+48 ..." />
+              <Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} inputMode="tel" placeholder="+48 ..." />
             </Field>
             <Field>
               <label>Country *</label>
-              <Input value={form.country} onChange={e => setForm({...form, country: e.target.value})} placeholder="Poland" />
+              <Input value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="Poland" />
             </Field>
             <Field>
               <label>Practice Groups *</label>
