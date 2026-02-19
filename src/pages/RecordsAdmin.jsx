@@ -244,7 +244,7 @@ export default function RecordsAdmin() {
 
     const loadAll = async () => {
         try {
-            const [g, u] = await Promise.all([api.get("/groups"), api.get("/users")]);
+            const [g, u] = await Promise.all([api.get("/getGroups"), api.get("/users")]);
             setGroups(g.data.groups || []);
             setUsers(u.data.users || []);
         } catch (e) {
@@ -340,16 +340,17 @@ export default function RecordsAdmin() {
                     <div style={{ marginTop: 15 }}>
                         <label style={{ fontSize: 11, fontWeight: 700 }}>SELECT GROUPS</label>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 5 }}>
-                            {groups.map((g) => (
+                            {groups.map((name) => (
                                 <GhostButton
-                                    key={g._id}
+                                    key={name}
                                     type="button"
-                                    onClick={() => toggleGroup(g.name)}
-                                    style={{ borderColor: form.groups.includes(g.name) ? "var(--green)" : "" }}
+                                    onClick={() => toggleGroup(name)}
+                                    style={{ borderColor: form.groups.includes(name) ? "var(--green)" : "" }}
                                 >
-                                    {g.name}
+                                    {name}
                                 </GhostButton>
                             ))}
+
                         </div>
                     </div>
 
