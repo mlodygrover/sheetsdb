@@ -6,6 +6,7 @@ import {
     getAllowedGroupsFromSheet,
     findUserByKeyFromSheet,
     upsertUserToSheet,
+    getAllowedFirmsFromSheet
 } from "./sheets.js";
 
 export const router = express.Router();
@@ -43,7 +44,14 @@ router.get("/getGroups", async (_req, res) => {
         return res.status(500).json({ error: String(e?.message || e) });
     }
 });
-
+router.get("/getFirms", async (_req, res) => {
+    try {
+        const firms = await getAllowedFirmsFromSheet();
+        return res.json({ firms });
+    } catch (e) {
+        return res.status(500).json({ error: String(e?.message || e) });
+    }
+});
 /**
  * (DODATKOWE - potrzebne do admin/test)
  * GET /users -> lista users

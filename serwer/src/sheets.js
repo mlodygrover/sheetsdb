@@ -129,13 +129,46 @@ export async function getAllUsersFromSheet() {
  * (Prosta metoda – nie czyta reguł walidacji dropdowna, tylko dane.)
  */
 export async function getAllowedGroupsFromSheet() {
-    const users = await getAllUsersFromSheet();
-    const set = new Set();
-    for (const u of users) {
-        for (const g of u.groups || []) set.add(g);
-    }
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
+    const sheetId = process.env.SHEET_ID;
+    const tabName = "Arkusz2";
+    if (!sheetId) throw new Error("SHEET_ID is missing");
+
+    const sheets = await getSheetsClient();
+
+    // Kolumna B, od wiersza 2 (B1 to nagłówek)
+    const res = await sheets.spreadsheets.values.get({
+        spreadsheetId: sheetId,
+        range: `${tabName}!B2:B`,
+    });
+
+    const out = (res.data.values || [])
+        .flat()
+        .map((x) => String(x || "").trim())
+        .filter(Boolean);
+
+    return Array.from(new Set(out)).sort((a, b) => a.localeCompare(b));
 }
+export async function getAllowedFirmsFromSheet() {
+  const sheetId = process.env.SHEET_ID;
+  const tabName = "Arkusz2";
+  if (!sheetId) throw new Error("SHEET_ID is missing");
+
+  const sheets = await getSheetsClient();
+
+  // Kolumna A, od wiersza 2 (A1 to nagłówek)
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: sheetId,
+    range: `${tabName}!A2:A`,
+  });
+
+  const out = (res.data.values || [])
+    .flat()
+    .map((x) => String(x || "").trim())
+    .filter(Boolean);
+
+  return Array.from(new Set(out)).sort((a, b) => a.localeCompare(b));
+}
+
 
 /**
  * Znajduje usera po key: porównuje makeModifyKey(email) z przekazanym key.

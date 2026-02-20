@@ -2,9 +2,41 @@ import React, { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 import { api } from "../api.js";
 import { useSearchParams } from "react-router-dom";
-
+// DODAJ TE IMPORTY:
+import Select from "react-select";
+import countries from "world-countries";
 /* ----------------------------- styled ----------------------------- */
+// Dodajemy style dla PhoneInput, aby wyglądał identycznie jak Twój Input
+const PhoneInputWrapper = styled.div`
+  .PhoneInput {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: #fff;
+    transition: border-color 0.2s;
 
+    &:focus-within {
+      border-color: var(--green);
+      box-shadow: 0 0 0 4px rgba(14, 163, 127, 0.1);
+    }
+  }
+
+  .PhoneInputInput {
+    border: none;
+    outline: none;
+    font-size: 16px;
+    width: 100%;
+    background: transparent;
+  }
+
+  .PhoneInputCountrySelect {
+    cursor: pointer;
+  }
+`;
 const Page = styled.div`
   --bg: #f6f7f6;
   --card: #ffffff;
@@ -175,10 +207,26 @@ const Status = styled.div`
   margin-bottom: 20px;
   font-size: 14px;
   font-weight: 500;
-  background: ${({ $type }) => ($type === "error" ? "#fef2f2" : "#ecfdf5")};
-  color: ${({ $type }) => ($type === "error" ? "#b91c1c" : "#065f46")};
-  border: 1px solid ${({ $type }) => ($type === "error" ? "#fecaca" : "#a7f3d0")};
+
+  background: ${({ $type }) =>
+    $type === "error" ? "#fef2f2" :
+      $type === "ok" ? "#ecfdf5" :
+        $type === "warn" ? "#fffbeb" :
+          "#f3f4f6"};
+
+  color: ${({ $type }) =>
+    $type === "error" ? "#b91c1c" :
+      $type === "ok" ? "#065f46" :
+        $type === "warn" ? "#92400e" :
+          "#111827"};
+
+  border: 1px solid ${({ $type }) =>
+    $type === "error" ? "#fecaca" :
+      $type === "ok" ? "#a7f3d0" :
+        $type === "warn" ? "#fcd34d" :
+          "#e5e7eb"};
 `;
+
 
 const Chips = styled.div`
   display: flex;
@@ -209,6 +257,46 @@ const Note = styled.p`
   line-height: 1.5;
 `;
 
+const FormContent = styled.div`
+  position: relative;
+  transition: opacity 0.3s ease;
+  
+  ${({ $disabled }) => $disabled && `
+    pointer-events: none; // blokuje kliknięcia
+    user-select: none;    // blokuje zaznaczanie
+    opacity: 0.5;         // efekt szarości/przezroczystości
+    filter: grayscale(1); // pełna szarość
+  `}
+`;
+// Przygotowanie listy krajów dla react-select
+const countryOptions = countries
+  .map((c) => ({
+    value: c.name.common,
+    label: c.name.common,
+  }))
+  .sort((a, b) => a.label.localeCompare(b.label));
+
+/* ----------------------------- styled ----------------------------- */
+
+// Style dla React Select, aby pasowały do Twojego designu
+const customSelectStyles = {
+  control: (base, state) => ({
+    ...base,
+    borderRadius: "12px",
+    padding: "4px",
+    borderColor: state.isFocused ? "var(--green)" : "var(--border)",
+    boxShadow: state.isFocused ? "0 0 0 4px rgba(14, 163, 127, 0.1)" : "none",
+    "&:hover": {
+      borderColor: "var(--green)",
+    },
+  }),
+  option: (base, state) => ({
+    ...base,
+    backgroundColor: state.isSelected ? "var(--green)" : state.isFocused ? "rgba(14, 163, 127, 0.05)" : "white",
+    color: state.isSelected ? "white" : "var(--text)",
+    cursor: "pointer",
+  }),
+};
 /* ----------------------------- component ----------------------------- */
 
 export default function ModifyRecord() {
@@ -229,16 +317,32 @@ export default function ModifyRecord() {
       form.country.trim() && form.groups.length >= 1;
   }, [key, form]);
 
+  const [firms, setFirms] = useState([]);
+
+  // opcje do react-select
+  const firmOptions = useMemo(
+    () =>
+      (firms || [])
+        .map((f) => ({ value: f, label: f }))
+        .sort((a, b) => a.label.localeCompare(b.label)),
+    [firms]
+  );
   useEffect(() => {
     (async () => {
       try {
-        const g = await api.get("/getGroups");
+        const [g, f] = await Promise.all([
+          api.get("/getGroups"),
+          api.get("/getFirms"),
+        ]);
+
         setGroups(g.data.groups || []);
+        setFirms(f.data.firms || []);
       } catch {
-        setStatus({ type: "error", msg: "Unable to load groups." });
+        setStatus({ type: "error", msg: "Unable to load groups/firms." });
       }
     })();
   }, []);
+
 
   useEffect(() => {
     if (!key) return;
@@ -273,9 +377,9 @@ export default function ModifyRecord() {
         });
 
         setStatus({
-          type: "error",
+          type: "warn",
           msg: emailFromUrl
-            ? "No existing record found. Please complete the form to create your profile."
+            ? "You have not created a public profile yet. Please fill in the details below to create it."
             : "No existing record found and email is missing in URL.",
         });
       }
@@ -317,7 +421,7 @@ export default function ModifyRecord() {
       setStatus({ type: "error", msg: e?.response?.data?.error || "Update failed." });
     }
   }
-
+  const isLocked = !key; // flaga blokady
 
   return (
     <Page>
@@ -333,39 +437,60 @@ export default function ModifyRecord() {
         <Card>
           {!key && <Status $type="error">Missing access key in URL.</Status>}
           {status.msg && <Status $type={status.type}>{status.msg}</Status>}
+          <FormContent $disabled={isLocked}>
+            <Grid>
+              <Field>
+                <label>Full Name *</label>
+                <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="John Doe" />
+              </Field>
+              <Field>
+                <label>Law Firm *</label>
+                <Select
+                  options={firmOptions}
+                  styles={customSelectStyles}
+                  value={firmOptions.find(o => o.value === form.lawFirm) || null}
+                  onChange={(option) =>
+                    setForm({ ...form, lawFirm: option ? option.value : "" })
+                  }
+                  placeholder="Select a law firm..."
+                  isSearchable={true}
+                  isClearable={true}
+                  // krytyczne: blokuje wpisywanie własnych wartości
+                  isCreatable={false}
+                />
+              </Field>
 
-          <Grid>
-            <Field>
-              <label>Full Name *</label>
-              <Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="John Doe" />
-            </Field>
-            <Field>
-              <label>Law Firm *</label>
-              <Input value={form.lawFirm} onChange={e => setForm({ ...form, lawFirm: e.target.value })} placeholder="Firm Name" />
-            </Field>
-            <Field>
-              <label>E-mail *</label>
-              <Input value={form.email} disabled />
-            </Field>
-            <Field>
-              <label>Phone</label>
-              <Input value={form.phone} onChange={e => setForm({ ...form, phone: e.target.value })} inputMode="tel" placeholder="+48 ..." />
-            </Field>
-            <Field>
-              <label>Country *</label>
-              <Input value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="Poland" />
-            </Field>
-            <Field>
-              <label>Practice Groups *</label>
-              <Chips>
-                {groups.map(g => (
-                  <Chip key={g} type="button" $active={form.groups.includes(g)} onClick={() => toggleGroup(g)}>
-                    {g}
-                  </Chip>
-                ))}
-              </Chips>
-            </Field>
-          </Grid>
+              <Field>
+                <label>E-mail *</label>
+                <Input value={form.email} disabled />
+              </Field>
+
+              <Field>
+
+                <label>Country *</label>
+                <Select
+                  options={countryOptions}
+                  styles={customSelectStyles}
+                  value={countryOptions.find(o => o.value === form.country) || null}
+                  onChange={(option) => setForm({ ...form, country: option ? option.value : "" })}
+                  placeholder="Select a country..."
+                  isSearchable={true}
+                />
+              </Field>
+              <Field>
+                <label>Practice Groups *</label>
+                <Chips>
+                  {groups.map(g => (
+                    <Chip key={g} type="button" $active={form.groups.includes(g)} onClick={() => toggleGroup(g)}>
+                      {g}
+                    </Chip>
+                  ))}
+                </Chips>
+              </Field>
+            </Grid>
+
+          </FormContent>
+
 
           <Actions>
             <PrimaryButton disabled={!canSubmit} onClick={submit}>
