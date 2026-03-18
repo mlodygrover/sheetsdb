@@ -130,7 +130,7 @@ export async function getAllUsersFromSheet() {
  */
 export async function getAllowedGroupsFromSheet() {
     const sheetId = process.env.SHEET_ID;
-    const tabName = "Arkusz2";
+    const tabName = process.env.SHEET_ID2 || "Arkusz2";
     if (!sheetId) throw new Error("SHEET_ID is missing");
 
     const sheets = await getSheetsClient();
@@ -150,7 +150,7 @@ export async function getAllowedGroupsFromSheet() {
 }
 export async function getAllowedFirmsFromSheet() {
   const sheetId = process.env.SHEET_ID;
-  const tabName = "Arkusz2";
+  const tabName = process.env.SHEET_ID2 || "Arkusz2";
   if (!sheetId) throw new Error("SHEET_ID is missing");
 
   const sheets = await getSheetsClient();
